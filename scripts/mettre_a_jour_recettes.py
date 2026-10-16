@@ -1,10 +1,12 @@
 """Synchronise les titres et miniatures Weebly, et ajoute les nouvelles recettes.
 
 Les catégories, URL et recettes absentes du sitemap ne sont jamais modifiées
-ni supprimées. Par sécurité, un trop grand nombre de changements bloque
-l'écriture du catalogue et demande une vérification du rapport.
+ni supprimées. Une unique synchronisation initiale est autorisée seulement
+si ses 211 différences correspondent exactement au rapport vérifié.
+Ensuite, au plus 10 recettes existantes peuvent être modifiées par exécution.
 """
 import html
+import hashlib
 import json
 import os
 import re
@@ -21,6 +23,12 @@ CATALOGUE = Path('recettes.json')
 REPORT = Path('rapport_mise_a_jour.json')
 MAX_ADDITIONS = 10
 MAX_EXISTING_CHANGES = 10
+# Autorisation exceptionnelle pour la première synchronisation, validée à partir
+# du rapport du 16 octobre 2026 (210 titres et une photo).
+# Si une seule différence apparaît, cette autorisation ne s'applique pas.
+INITIAL_APPROVED_FINGERPRINT = '6e8153a9835f003ba81f2435160f09fe56238fb5bd6eeb39f03620462449ecac'
+INITIAL_APPROVED_COUNT = 211
+
 CATEGORIES = {
     ('entrees', 'soupes-et-veloutes'): 'Soupes et Veloutés',
     ('entrees', 'entrees-froides'): 'Entrées froides',
@@ -115,6 +123,17 @@ def valid_url(url):
     return parsed.scheme == 'https' and parsed.netloc == DOMAIN and parsed.path.endswith('.html')
 
 
+def changes_fingerprint(changes):
+    """Empreinte exacte des anciennes et nouvelles valeurs, indépendante de l'ordre."""
+    normalized = sorted(
+        (item['url'], field, str(values['ancien']), str(values['nouveau']))
+        for item in changes
+        for field, values in item['modifications'].items()
+    )
+    encoded = json.dumps(normalized, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
 def main():
     existing = json.loads(CATALOGUE.read_text(encoding='utf-8'))
     if not isinstance(existing, list) or not existing:
@@ -191,8 +210,14 @@ def main():
         raise RuntimeError('Certaines pages ont échoué : aucune mise à jour. Voir le rapport.')
     if len(additions) > MAX_ADDITIONS:
         raise RuntimeError('Plus de 10 ajouts : validation manuelle requise, aucune mise à jour.')
-    if len(changes) > MAX_EXISTING_CHANGES:
-        raise RuntimeError('Plus de 10 recettes existantes modifiées : vérifier le rapport avant validation. Aucune mise à jour.')
+    initial_approved = (
+        len(changes) == INITIAL_APPROVED_COUNT
+        and changes_fingerprint(changes) == INITIAL_APPROVED_FINGERPRINT
+    )
+    if len(changes) > MAX_EXISTING_CHANGES and not initial_approved:
+        raise RuntimeError('Plus de 10 recettes existantes modifiées et rapport différent de la synchronisation validée : aucune mise à jour.')
+    if initial_approved:
+        print('Première synchronisation validée : 210 titres et 1 photo. Empreinte conforme.', flush=True)
     if additions or changes:
         temp = CATALOGUE.with_suffix('.json.tmp')
         temp.write_text(json.dumps(updated + additions, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
