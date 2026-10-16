@@ -1,0 +1,25 @@
+name: Tester la detection des recettes
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Recuperer les fichiers
+        uses: actions/checkout@v4
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Analyser le sitemap sans modifier le catalogue
+        run: python scripts/verifier_recettes.py
+      - name: Conserver le rapport du test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-verification-recettes
+          path: rapport_verification.json
+          if-no-files-found: ignore
