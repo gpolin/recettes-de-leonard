@@ -42,7 +42,13 @@ for(const name of keys){const button=make('button',name===major?'active':'',name
 for(const category of groups[major]){const link=make('a','',category);link.href='#'+slug(category);link.onclick=e=>{e.preventDefault();const target=document.getElementById(slug(category));if(target)target.scrollIntoView({behavior:'smooth'});};filters.append(link)}
 if(!loaded){box.className='status';box.textContent='Chargement du catalogue…';count.textContent='';return}
 let total=0;box.className='';for(const category of groups[major]){const list=recipes.filter(r=>r.category===category&&String(r.title||'').toLocaleLowerCase('fr').includes(term));if(!list.length)continue;total+=list.length;const section=make('section','section');section.id=slug(category);section.append(make('h2','',category));const grid=make('div','grid');for(const r of list){const article=make('article','recipe'),a=make('a','');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';if(r.image){const img=make('img');img.src=r.image;img.alt=r.title;img.loading='lazy';img.onerror=()=>{img.replaceWith(make('div','placeholder','Photo indisponible'))};a.append(img)}else a.append(make('div','placeholder','Photo indisponible'));a.append(make('div','',r.title));article.append(a);grid.append(article)}section.append(grid);box.append(section)}count.textContent=total+' recette'+(total>1?'s':'');if(!total){box.className='status';box.textContent='Aucune recette trouvée.'}}
-document.querySelector('#backTop').addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));q.addEventListener('input',render);window.addEventListener('hashchange',()=>{q.value='';render()});render();fetch('./recettes.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Fichier recettes.json introuvable');return r.json()}).then(data=>{if(!Array.isArray(data))throw Error('Format du catalogue incorrect');recipes=data;loaded=true;render()}).catch(e=>{loaded=true;box.className='status error';box.textContent='Impossible de charger le catalogue : '+e.message;count.textContent='' });
+document.querySelector('#backTop').addEventListener('click',()=>{
+  window.parent.postMessage(
+    {type:'retour-haut-catalogue-leonard'},
+    'https://lesrecettesdeleonard.weebly.com'
+  );
+  window.scrollTo({top:0,behavior:'smooth'});
+});q.addEventListener('input',render);window.addEventListener('hashchange',()=>{q.value='';render()});render();fetch('./recettes.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Fichier recettes.json introuvable');return r.json()}).then(data=>{if(!Array.isArray(data))throw Error('Format du catalogue incorrect');recipes=data;loaded=true;render()}).catch(e=>{loaded=true;box.className='status error';box.textContent='Impossible de charger le catalogue : '+e.message;count.textContent='' });
 </script>
 
 <script>
