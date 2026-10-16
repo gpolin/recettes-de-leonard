@@ -1,18 +1,47 @@
-<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catalogue – Les Recettes de Léonard</title><style>body{font-family:Georgia,serif;background:#fcdfcb;color:#613b50;margin:0;padding:35px 20px}main{max-width:900px;margin:auto}h1{font-size:2rem}h2{margin-top:35px}input{width:100%;padding:13px;border:1px solid #b68b8d;border-radius:8px;font-size:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.recipe{text-align:center;overflow-wrap:anywhere}.recipe a{color:#613b50;text-decoration:none;font-weight:bold;line-height:1.4}.recipe img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;display:block;margin-bottom:8px;background:#f4cdb9}.error{color:#a22}@media(max-width:620px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body><main><h1>Catalogue des recettes – Test GitHub</h1><p>Cette page sert uniquement à vérifier la publication du catalogue. Elle ne remplace pas encore ta page Weebly.</p><input id="q" placeholder="Rechercher une recette…" aria-label="Rechercher"><div id="result">Chargement du catalogue…</div></main><script>
-const box=document.querySelector('#result'),q=document.querySelector('#q');let recipes=[];
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Les Recettes de Léonard – Catalogue</title>
+<style>
+:root{--fond:#fcdfcb;--texte:#613b50;--accent:#75465f;--clair:#f6cbb8}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--fond);color:var(--texte);font-family:Georgia,serif}main{max-width:1060px;margin:auto;padding:28px 22px 75px}.nav{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:4px 0 30px}.nav button,.filters a{font:inherit;cursor:pointer;border:1px solid var(--accent);border-radius:9px;padding:11px 19px;background:transparent;color:var(--texte);text-decoration:none}.nav button.active,.nav button:hover,.filters a:hover{background:var(--accent);color:#fff}.hero{text-align:center;margin:12px auto 30px}.hero h1{font-size:clamp(2rem,5vw,3.1rem);font-weight:normal;margin:0 0 13px}.hero p{font-size:1.08rem;line-height:1.6;margin:0}.filters{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:24px 0 30px}.filters a{padding:9px 14px;background:#f7d3c1}.search{display:block;width:100%;max-width:680px;margin:0 auto 35px;padding:14px 17px;border:1px solid #b68b8d;border-radius:10px;background:#fffaf6;color:var(--texte);font:1rem Georgia,serif}.section{margin:32px 0 48px;scroll-margin-top:18px}.section h2{font-size:1.8rem;font-weight:normal;border-bottom:1px solid #c99a9b;padding-bottom:12px;margin:0 0 22px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:25px 20px}.recipe{text-align:center;overflow-wrap:anywhere}.recipe a{color:var(--texte);text-decoration:none;font-weight:bold;line-height:1.45}.recipe a:hover{text-decoration:underline}.recipe img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;display:block;margin-bottom:10px;background:var(--clair)}.placeholder{width:100%;aspect-ratio:4/3;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;background:var(--clair);font-weight:normal}.status{text-align:center;margin:25px 0}.error{color:#a22}.count{text-align:center;font-size:.94rem;margin:-17px 0 28px;opacity:.8}@media(max-width:620px){main{padding:18px 14px 50px}.nav{gap:7px}.nav button{padding:9px 12px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 12px}.section h2{font-size:1.5rem}.filters a{font-size:.9rem;padding:8px 10px}}
+</style>
+</head>
+<body>
+<main>
+<nav class="nav" aria-label="Rubriques du catalogue" id="nav"></nav>
+<header class="hero"><h1 id="heading">Les Entrées</h1><p id="intro"></p></header>
+<div class="filters" id="filters" aria-label="Sous-catégories"></div>
+<input class="search" id="q" type="search" placeholder="Rechercher une recette…" aria-label="Rechercher une recette">
+<div id="count" class="count" aria-live="polite"></div>
+<div id="result" class="status">Chargement du catalogue…</div>
+</main>
+<script>
 const groups={
-  'Entrées':['Soupes et Veloutés','Entrées froides','Entrées chaudes'],
-  'Plats':['Autres viandes','Bœuf','Canard','Poissons et fruits de mer','Porc','Veau','Volaille','Végétarien'],
-  'Desserts':['Autres desserts','Biscuits et petites douceurs','Crèmes et mousses','Desserts aux fruits','Entremets et desserts individuels','Gâteaux et pâtisseries','Panna cotta','Tartes et tartelettes'],
-  'Buffet':['Cocktails','Salé','Sucré']
+ 'Entrées':['Soupes et Veloutés','Entrées froides','Entrées chaudes'],
+ 'Plats':['Autres viandes','Bœuf','Canard','Poissons et fruits de mer','Porc','Veau','Volaille','Végétarien'],
+ 'Desserts':['Autres desserts','Biscuits et petites douceurs','Crèmes et mousses','Desserts aux fruits','Entremets et desserts individuels','Gâteaux et pâtisseries','Panna cotta','Tartes et tartelettes'],
+ 'Buffet':['Cocktails','Salé','Sucré']
 };
-function render(){const term=q.value.toLocaleLowerCase('fr').trim();box.replaceChildren();let count=0;
-for(const [major,categories] of Object.entries(groups)){
- const wrapper=document.createElement('div');let groupCount=0;
- for(const category of categories){const list=recipes.filter(r=>r.category===category&&r.title.toLocaleLowerCase('fr').includes(term));if(!list.length)continue;
- count+=list.length;groupCount+=list.length;const section=document.createElement('section'),h=document.createElement('h3'),grid=document.createElement('div');h.textContent=category;grid.className='grid';
- for(const r of list){const article=document.createElement('article'),a=document.createElement('a'),img=document.createElement('img'),label=document.createElement('div');article.className='recipe';a.href=r.url;a.target='_blank';a.rel='noopener';if(r.image){img.src=r.image;img.alt=r.title;img.loading='lazy';img.onerror=()=>img.remove();a.append(img)}label.textContent=r.title;a.append(label);article.append(a);grid.append(article)}section.append(h,grid);wrapper.append(section)}
- if(groupCount){const h=document.createElement('h2');h.textContent=major;box.append(h,wrapper)}
-}if(!count)box.textContent='Aucune recette trouvée.'}
-q.addEventListener('input',render);fetch('./recettes.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Fichier recettes.json introuvable');return r.json()}).then(data=>{recipes=data;render()}).catch(e=>{box.className='error';box.textContent='Impossible de charger le catalogue : '+e.message});
-</script></body></html>
+const descriptions={
+ 'Entrées':'Découvrez nos entrées, soupes et veloutés, pour bien commencer le repas.',
+ 'Plats':'Retrouvez tous nos plats, des recettes traditionnelles aux idées végétariennes.',
+ 'Desserts':'Gâteaux, tartes, crèmes et petites douceurs pour terminer le repas.',
+ 'Buffet':'Des recettes salées, sucrées et des cocktails pour vos buffets.'
+};
+const keys=Object.keys(groups), nav=document.querySelector('#nav'),filters=document.querySelector('#filters'),heading=document.querySelector('#heading'),intro=document.querySelector('#intro'),q=document.querySelector('#q'),box=document.querySelector('#result'),count=document.querySelector('#count');
+let recipes=[],loaded=false;
+function selected(){const name=decodeURIComponent(location.hash.slice(1)).split('/')[0];return keys.includes(name)?name:'Entrées'}
+function slug(name){return 'categorie-'+name.toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
+function make(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el}
+function render(){const major=selected(),term=q.value.toLocaleLowerCase('fr').trim();nav.replaceChildren();filters.replaceChildren();box.replaceChildren();heading.textContent='Les '+major; if(major==='Buffet')heading.textContent='Le Buffet';intro.textContent=descriptions[major];document.title=major+' – Les Recettes de Léonard';
+for(const name of keys){const button=make('button',name===major?'active':'',name);button.type='button';button.setAttribute('aria-current',name===major?'page':'false');button.onclick=()=>{if(selected()!==name){q.value='';location.hash=encodeURIComponent(name);window.scrollTo({top:0,behavior:'instant'})}};nav.append(button)}
+for(const category of groups[major]){const link=make('a','',category);link.href='#'+slug(category);link.onclick=e=>{e.preventDefault();const target=document.getElementById(slug(category));if(target)target.scrollIntoView({behavior:'smooth'});};filters.append(link)}
+if(!loaded){box.className='status';box.textContent='Chargement du catalogue…';count.textContent='';return}
+let total=0;box.className='';for(const category of groups[major]){const list=recipes.filter(r=>r.category===category&&String(r.title||'').toLocaleLowerCase('fr').includes(term));if(!list.length)continue;total+=list.length;const section=make('section','section');section.id=slug(category);section.append(make('h2','',category));const grid=make('div','grid');for(const r of list){const article=make('article','recipe'),a=make('a','');a.href=r.url;a.target='_blank';a.rel='noopener noreferrer';if(r.image){const img=make('img');img.src=r.image;img.alt=r.title;img.loading='lazy';img.onerror=()=>{img.replaceWith(make('div','placeholder','Photo indisponible'))};a.append(img)}else a.append(make('div','placeholder','Photo indisponible'));a.append(make('div','',r.title));article.append(a);grid.append(article)}section.append(grid);box.append(section)}count.textContent=total+' recette'+(total>1?'s':'');if(!total){box.className='status';box.textContent='Aucune recette trouvée.'}}
+q.addEventListener('input',render);window.addEventListener('hashchange',()=>{q.value='';render()});render();fetch('./recettes.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Fichier recettes.json introuvable');return r.json()}).then(data=>{if(!Array.isArray(data))throw Error('Format du catalogue incorrect');recipes=data;loaded=true;render()}).catch(e=>{loaded=true;box.className='status error';box.textContent='Impossible de charger le catalogue : '+e.message;count.textContent='' });
+</script>
+</body>
+</html>
