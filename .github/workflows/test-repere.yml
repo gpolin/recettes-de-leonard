@@ -1,0 +1,64 @@
+
+name: Tester le repere de categorie
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Installer Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Verifier le repere du Veloute
+        shell: bash
+        run: |
+          python - <<'PY'
+          import urllib.request
+          from html.parser import HTMLParser
+
+          url = "https://lesrecettesdeleonard.weebly.com/velouteacute-dendive.html"
+
+          class Detecteur(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.reperes = []
+
+              def handle_starttag(self, tag, attrs):
+                  attributs = dict(attrs)
+                  if "data-recette-categorie" in attributs:
+                      self.reperes.append(attributs)
+
+          requete = urllib.request.Request(
+              url,
+              headers={"User-Agent": "Mozilla/5.0"}
+          )
+
+          with urllib.request.urlopen(requete, timeout=30) as reponse:
+              html = reponse.read().decode("utf-8", errors="replace")
+
+          detecteur = Detecteur()
+          detecteur.feed(html)
+
+          print("Page examinee :", url)
+          print("Reperes trouves :", len(detecteur.reperes))
+
+          for repere in detecteur.reperes:
+              print("Categorie :", repere.get("data-recette-categorie"))
+              print("Sous-categorie :", repere.get("data-recette-sous-categorie"))
+
+          attendu = {
+              "data-recette-categorie": "entrees",
+              "data-recette-sous-categorie": "soupes-et-veloutes"
+          }
+
+          if any(all(r.get(k) == v for k, v in attendu.items())
+                 for r in detecteur.reperes):
+              print("SUCCES : repere correctement detecte")
+          else:
+              raise SystemExit("ECHEC : repere attendu introuvable")
+          PY
