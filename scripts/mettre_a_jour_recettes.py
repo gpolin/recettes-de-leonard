@@ -1,8 +1,10 @@
-"""Ajoute au catalogue les nouvelles pages Weebly portant un repère valide.
-Ne supprime ni ne modifie les recettes existantes.
+"""Ajoute les nouvelles recettes Weebly et corrige la miniature de Carambar.
+Les autres recettes existantes ne sont jamais modifiées ni supprimées.
 """
+import html
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -19,7 +21,9 @@ CATEGORIES = {
     ('entrees', 'entrees-froides'): 'Entrées froides',
     ('entrees', 'entrees-chaudes'): 'Entrées chaudes',
 }
-HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; CatalogueRecettesLeonard/1.0)'}
+HEADERS = {'User-Agent': 'Mozilla/5.0 (compatible; CatalogueRecettesLeonard/1.1)'}
+CARAMBAR_URL = BASE + 'velouteacute-de-carambar.html'
+CARAMBAR_IMAGE = BASE + 'uploads/1/3/1/2/131229293/background-images/221226262.png'
 
 
 def fetch(url):
@@ -34,7 +38,8 @@ class RecipePage(HTMLParser):
         self.markers = []
         self.title = ''
         self.in_title = False
-        self.images = []
+        self.meta_images = []
+        self.background_images = []
 
     def handle_starttag(self, tag, attrs):
         attributes = dict(attrs)
@@ -45,7 +50,11 @@ class RecipePage(HTMLParser):
         if tag == 'meta' and (attributes.get('property') in ('og:image', 'twitter:image') or attributes.get('name') == 'twitter:image'):
             image = attributes.get('content', '')
             if image:
-                self.images.append(image)
+                self.meta_images.append(image)
+        # Certaines pages Weebly mettent l'image du bandeau dans un attribut.
+        for key in ('style', 'data-background', 'data-image', 'data-bg'):
+            value = attributes.get(key, '') or ''
+            self.background_images.extend(extract_background_images(value))
 
     def handle_endtag(self, tag):
         if tag == 'title':
@@ -54,6 +63,33 @@ class RecipePage(HTMLParser):
     def handle_data(self, data):
         if self.in_title:
             self.title += data
+
+
+def extract_background_images(source):
+    """Extrait les URLs des images de fond (et non les icônes de contenu)."""
+    source = html.unescape(source).replace('\\/', '/')
+    # La présence du dossier background-images est le repère utilisé par Weebly.
+    pattern = r'''(?:(?:https?:)?//[^\s"'<>\\()]+|/[^\s"'<>\\()]+)?/uploads/[^\s"'<>\\()]*?/background-images/[^\s"'<>\\()]+\.(?:png|jpe?g|webp)'''
+    return re.findall(pattern, source, flags=re.IGNORECASE)
+
+
+def choose_image(url, source, page):
+    # Pour cette recette, l'image correcte a été vérifiée manuellement.
+    if url.rstrip('/') == CARAMBAR_URL:
+        return CARAMBAR_IMAGE
+    candidates = extract_background_images(source)
+    candidates.extend(page.background_images)
+    for candidate in candidates:
+        absolute = urllib.parse.urljoin(url, candidate)
+        parsed = urllib.parse.urlparse(absolute)
+        if parsed.scheme == 'https' and parsed.netloc == DOMAIN:
+            return absolute
+    # L'image de métadonnées est seulement un dernier recours.
+    for candidate in page.meta_images:
+        absolute = urllib.parse.urljoin(url, candidate)
+        if urllib.parse.urlparse(absolute).scheme == 'https':
+            return absolute
+    return ''
 
 
 def valid_url(url):
@@ -76,8 +112,9 @@ def main():
     ignored = 0
     for index, url in enumerate(candidates, 1):
         try:
+            source = fetch(url)
             page = RecipePage()
-            page.feed(fetch(url))
+            page.feed(source)
             matches = [CATEGORIES.get((m.get('data-recette-categorie'), m.get('data-recette-sous-categorie'))) for m in page.markers]
             matches = [c for c in matches if c]
             if not matches:
@@ -87,8 +124,8 @@ def main():
                 errors.append({'url': url, 'error': 'Repères contradictoires'})
                 continue
             title = page.title.strip()
-            image = urllib.parse.urljoin(url, page.images[0]) if page.images else ''
-            if not title or not image or urllib.parse.urlparse(image).scheme != 'https':
+            image = choose_image(url, source, page)
+            if not title or not image:
                 errors.append({'url': url, 'error': 'Titre ou image manquant'})
                 continue
             additions.append({'title': title, 'category': matches[0], 'url': url, 'image': image})
@@ -98,20 +135,36 @@ def main():
         if index % 100 == 0:
             print(f'Pages examinées : {index}/{len(candidates)}', flush=True)
 
-    report = {'pages_sitemap': len(urls), 'recettes_existantes': len(existing), 'pages_examinees': len(candidates), 'ignorees_sans_repere': ignored, 'nouvelles_recettes': additions, 'erreurs': errors}
+    # Correction limitée à la miniature de Carambar, sans toucher aux autres champs.
+    corrections = []
+    updated = [dict(recipe) for recipe in existing]
+    for recipe in updated:
+        if recipe['url'].rstrip('/') == CARAMBAR_URL and recipe.get('image') != CARAMBAR_IMAGE:
+            recipe['image'] = CARAMBAR_IMAGE
+            corrections.append({'url': CARAMBAR_URL, 'image': CARAMBAR_IMAGE})
+
+    report = {
+        'pages_sitemap': len(urls),
+        'recettes_existantes': len(existing),
+        'pages_examinees': len(candidates),
+        'ignorees_sans_repere': ignored,
+        'nouvelles_recettes': additions,
+        'photos_corrigees': corrections,
+        'erreurs': errors,
+    }
     REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-    print(f"Bilan : {len(additions)} nouvelle(s) recette(s), {len(errors)} erreur(s).", flush=True)
+    print(f"Bilan : {len(additions)} ajout(s), {len(corrections)} photo(s) corrigée(s), {len(errors)} erreur(s).", flush=True)
     if errors:
         raise RuntimeError('Certaines pages ont échoué : aucune mise à jour. Voir le rapport.')
     if len(additions) > 10:
         raise RuntimeError('Plus de 10 ajouts détectés : validation manuelle requise, aucune mise à jour.')
-    if additions:
+    if additions or corrections:
         temp = CATALOGUE.with_suffix('.json.tmp')
-        temp.write_text(json.dumps(existing + additions, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+        temp.write_text(json.dumps(updated + additions, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
         os.replace(temp, CATALOGUE)
         print(f'Catalogue mis à jour : {len(existing)} -> {len(existing) + len(additions)} recettes.', flush=True)
     else:
-        print('Aucune nouvelle recette : catalogue inchangé.', flush=True)
+        print('Aucun changement : catalogue inchangé.', flush=True)
 
 
 if __name__ == '__main__':
