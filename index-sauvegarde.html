@@ -1,0 +1,18 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Catalogue – Les Recettes de Léonard</title><style>body{font-family:Georgia,serif;background:#fcdfcb;color:#613b50;margin:0;padding:35px 20px}main{max-width:900px;margin:auto}h1{font-size:2rem}h2{margin-top:35px}input{width:100%;padding:13px;border:1px solid #b68b8d;border-radius:8px;font-size:1rem}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}.recipe{text-align:center;overflow-wrap:anywhere}.recipe a{color:#613b50;text-decoration:none;font-weight:bold;line-height:1.4}.recipe img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:9px;display:block;margin-bottom:8px;background:#f4cdb9}.error{color:#a22}@media(max-width:620px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body><main><h1>Catalogue des recettes – Test GitHub</h1><p>Cette page sert uniquement à vérifier la publication du catalogue. Elle ne remplace pas encore ta page Weebly.</p><input id="q" placeholder="Rechercher une recette…" aria-label="Rechercher"><div id="result">Chargement du catalogue…</div></main><script>
+const box=document.querySelector('#result'),q=document.querySelector('#q');let recipes=[];
+const groups={
+  'Entrées':['Soupes et Veloutés','Entrées froides','Entrées chaudes'],
+  'Plats':['Autres viandes','Bœuf','Canard','Poissons et fruits de mer','Porc','Veau','Volaille','Végétarien'],
+  'Desserts':['Autres desserts','Biscuits et petites douceurs','Crèmes et mousses','Desserts aux fruits','Entremets et desserts individuels','Gâteaux et pâtisseries','Panna cotta','Tartes et tartelettes'],
+  'Buffet':['Cocktails','Salé','Sucré']
+};
+function render(){const term=q.value.toLocaleLowerCase('fr').trim();box.replaceChildren();let count=0;
+for(const [major,categories] of Object.entries(groups)){
+ const wrapper=document.createElement('div');let groupCount=0;
+ for(const category of categories){const list=recipes.filter(r=>r.category===category&&r.title.toLocaleLowerCase('fr').includes(term));if(!list.length)continue;
+ count+=list.length;groupCount+=list.length;const section=document.createElement('section'),h=document.createElement('h3'),grid=document.createElement('div');h.textContent=category;grid.className='grid';
+ for(const r of list){const article=document.createElement('article'),a=document.createElement('a'),img=document.createElement('img'),label=document.createElement('div');article.className='recipe';a.href=r.url;a.target='_blank';a.rel='noopener';if(r.image){img.src=r.image;img.alt=r.title;img.loading='lazy';img.onerror=()=>img.remove();a.append(img)}label.textContent=r.title;a.append(label);article.append(a);grid.append(article)}section.append(h,grid);wrapper.append(section)}
+ if(groupCount){const h=document.createElement('h2');h.textContent=major;box.append(h,wrapper)}
+}if(!count)box.textContent='Aucune recette trouvée.'}
+q.addEventListener('input',render);fetch('./recettes.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('Fichier recettes.json introuvable');return r.json()}).then(data=>{recipes=data;render()}).catch(e=>{box.className='error';box.textContent='Impossible de charger le catalogue : '+e.message});
+</script></body></html>
