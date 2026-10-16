@@ -34,7 +34,23 @@ const descriptions={
 };
 const keys=Object.keys(groups), nav=document.querySelector('#nav'),filters=document.querySelector('#filters'),heading=document.querySelector('#heading'),intro=document.querySelector('#intro'),q=document.querySelector('#q'),box=document.querySelector('#result'),count=document.querySelector('#count');
 let recipes=[],loaded=false;
-function selected(){const name=decodeURIComponent(location.hash.slice(1)).split('/')[0];return keys.includes(name)?name:'Entrées'}
+
+function selected(){
+  const name = decodeURIComponent(location.hash.slice(1)).split('/')[0];
+  return keys.includes(name) ? name : 'Entrées';
+}
+
+window.addEventListener('message', function(event) {
+  if (event.origin !== 'https://lesrecettesdeleonard.weebly.com') return;
+  if (!event.data || event.data.type !== 'selection-rubrique-leonard') return;
+
+  const rubrique = event.data.rubrique;
+  if (keys.includes(rubrique)) {
+    location.hash = encodeURIComponent(rubrique);
+    render();
+  }
+});
+
 function slug(name){return 'categorie-'+name.toLocaleLowerCase('fr').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
 function make(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el}
 function render(){const major=selected(),term=q.value.toLocaleLowerCase('fr').trim();nav.replaceChildren();filters.replaceChildren();box.replaceChildren();heading.textContent='Les '+major; if(major==='Buffet')heading.textContent='Le Buffet';intro.textContent=descriptions[major];document.title=major+' – Les Recettes de Léonard';
