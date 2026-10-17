@@ -5,6 +5,7 @@ ni supprimées. Une unique synchronisation initiale est autorisée seulement
 si ses 211 différences correspondent exactement au rapport vérifié.
 Ensuite, au plus 10 recettes existantes peuvent être modifiées par exécution.
 """
+import argparse
 import html
 import hashlib
 import json
@@ -102,8 +103,6 @@ class RecipePage(HTMLParser):
 
 
 def choose_image(url, source, page):
-    if url.rstrip('/') == CARAMBAR_URL:
-        return CARAMBAR_IMAGE
     candidates = extract_background_images(source)
     candidates.extend(page.background_images)
     for candidate in candidates:
@@ -112,9 +111,16 @@ def choose_image(url, source, page):
         if parsed.scheme == 'https' and parsed.netloc == DOMAIN:
             return absolute
     for candidate in page.meta_images:
+        candidate = candidate.strip()
+        if not candidate:
+            continue
         absolute = urllib.parse.urljoin(url, candidate)
-        if urllib.parse.urlparse(absolute).scheme == 'https':
+        parsed = urllib.parse.urlparse(absolute)
+        if parsed.scheme == 'https' and parsed.netloc and parsed.path != '/':
             return absolute
+    # Ancienne photo de secours : une photo détectée sur Weebly reste prioritaire.
+    if url.rstrip('/') == CARAMBAR_URL:
+        return CARAMBAR_IMAGE
     return ''
 
 
@@ -134,7 +140,7 @@ def changes_fingerprint(changes):
     return hashlib.sha256(encoded).hexdigest()
 
 
-def main():
+def main(dry_run=False):
     existing = json.loads(CATALOGUE.read_text(encoding='utf-8'))
     if not isinstance(existing, list) or not existing:
         raise ValueError('Catalogue absent, vide ou invalide : aucune modification')
@@ -218,6 +224,9 @@ def main():
         raise RuntimeError('Plus de 10 recettes existantes modifiées et rapport différent de la synchronisation validée : aucune mise à jour.')
     if initial_approved:
         print('Première synchronisation validée : 210 titres et 1 photo. Empreinte conforme.', flush=True)
+    if dry_run:
+        print('Simulation : rapport enregistré, catalogue inchangé.', flush=True)
+        return
     if additions or changes:
         temp = CATALOGUE.with_suffix('.json.tmp')
         temp.write_text(json.dumps(updated + additions, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
@@ -228,8 +237,11 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--dry-run', action='store_true', help='Créer le rapport sans modifier recettes.json.')
+    args = parser.parse_args()
     try:
-        main()
+        main(dry_run=args.dry_run)
     except Exception as exc:
         print(f'ERREUR : {exc}', file=sys.stderr, flush=True)
         sys.exit(1)
