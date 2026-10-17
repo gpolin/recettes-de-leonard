@@ -23,6 +23,26 @@
 .recipe a > div:not(.placeholder) {
   font-size: 1.2rem;
 }
+/* Grands titres : Les Entrées, Les Plats, Les Desserts et Le Buffet. */
+.hero {
+  margin: 20px auto 36px;
+}
+.hero h1 {
+  font-size: clamp(2.4rem, 6vw, 3.7rem);
+  font-weight: bold;
+  line-height: 1.2;
+  color: #593247;
+  margin: 0 0 20px;
+}
+.hero h1::after {
+  content: "";
+  display: block;
+  width: 120px;
+  height: 4px;
+  margin: 18px auto 0;
+  background: var(--accent);
+  border-radius: 4px;
+}
 </style>
 </head>
 <body>
